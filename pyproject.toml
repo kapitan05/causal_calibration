@@ -1,0 +1,31 @@
+[project]
+name = "causal-calibration"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "ruff>=0.15.7",
+]
+
+# --- LINTER & FORMATTER SETTINGS ---
+[tool.ruff]
+# Set the maximum line length
+line-length = 88
+# Assume Python 3.12 or newer
+target-version = "py312"
+
+[tool.ruff.lint]
+# Select standard rules (E=pycodestyle, F=Pyflakes, I=isort)
+select = ["E", "F", "I"]
+
+# --- TYPE CHECKER SETTINGS ---
+[tool.mypy]
+# Enable strict type checking
+strict = true
+# Ignore missing imports for third-party libraries that don't have types
+ignore_missing_imports = true
