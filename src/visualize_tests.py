@@ -3,7 +3,7 @@ from typing import List
 import matplotlib.pyplot as plt
 
 
-def visualize_test(
+def visualize_tests(
     step_frac: float,
     del_probs: List[float],
     ins_probs: List[float],
