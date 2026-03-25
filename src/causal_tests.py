@@ -113,8 +113,23 @@ def evaluate_causal_metric(
     # model evaluation of sequence using batches
     for i in range(0, num_steps, batch_size):
         batch = sequence_tensor[i : i + batch_size]
-        logits = model(batch)
-        probs = torch.nn.functional.softmax(logits, dim=1)
+
+        if hasattr(model, "set_perturbation_level"):
+            batch_probs = []
+            for k in range(batch.size(0)):
+                current_step = i + k
+                level = current_step / max(1, (num_steps - 1))
+
+                model.set_perturbation_level(level)
+
+                single_img = batch[k : k + 1]
+                logits = model(single_img)
+                batch_probs.append(torch.nn.functional.softmax(logits, dim=1))
+
+            probs = torch.cat(batch_probs, dim=0)
+        else:
+            logits = model(batch)
+            probs = torch.nn.functional.softmax(logits, dim=1)
 
         target_probs = probs[:, target_class].cpu().tolist()
         probabilities.extend(target_probs)
