@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from sklearn.metrics import auc
@@ -74,15 +73,13 @@ def evaluate_causal_metric(
     batch_size: int = 32,
 ) -> tuple[list[float], float]:
     """
-    Executes the Insertion or Deletion algorithm and calculates the AUC score.
+    Evaluates a pre-generated sequence of images and calculates the AUC score.
 
     Args:
         model: PyTorch model in evaluation mode.
-        image: Input tensor of shape [1, 3, H, W].
-        saliency_map: Attribution map of shape [H, W].
+        sequence_tensor: Tensor of shape [num_steps, C, H, W] containing modified images.
+        perturbation_levels: Exact fraction of pixels modified at each step.
         target_class: The index of the class being explained.
-        mode: Either "deletion" or "insertion".
-        step_fraction: Fraction of total pixels to modify per step (default 0.01 = 1%).
         batch_size: Number of images to process simultaneously for speedup.
 
     Returns:
@@ -97,7 +94,7 @@ def evaluate_causal_metric(
         batch = sequence_tensor[i : i + batch_size]
         batch_levels = perturbation_levels[i : i + batch_size]
 
-        if hasattr(model, "set_perturbation_level"):
+        if hasattr(model, "set_perturbation_levels"):
             model.set_perturbation_levels(batch_levels)
             logits = model(batch)
             probs = torch.nn.functional.softmax(logits, dim=1)
@@ -109,7 +106,6 @@ def evaluate_causal_metric(
         probabilities.extend(target_probs)
 
     # AUC score
-    x_axis = np.linspace(0.0, 1.0, len(probabilities)).tolist()
-    auc_score = float(auc(x_axis, probabilities))
+    auc_score = float(auc(perturbation_levels, probabilities))
 
     return probabilities, auc_score
