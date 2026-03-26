@@ -4,3 +4,12 @@ Attribution methods:
 -Occlusion(RISE alternative, a black square slides across the image, then measures how much the confidence dropped)
 
 Sensitivity "metric" - (if a pixel changes the output, it gets a non-zero score)
+
+Experiments plan:
+-Calibrated Model + topn% pixels removal
+-Calibrated Model + buckets removal
+-Base Model + buckets removal
+-Base Model + buckets guided inpainting
+
+Metrics:
+-FID + OTDD (when datasets A - otiginal, B - masked, C - after inpainting prepared)

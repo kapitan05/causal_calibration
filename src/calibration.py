@@ -73,40 +73,36 @@ class ReCalXModel(nn.Module):
             torch.ones(num_bins, dtype=torch.float32), requires_grad=False
         )
 
-        # Przechowuje aktualny poziom zamazania (od 0.0 do 1.0),
-        # aby wiedzieć, której temperatury użyć.
-        self.current_perturbation_level = 0.0
-
-    def set_perturbation_level(self, level: float) -> None:
+    def set_perturbation_levels(self, levels: list[float] | torch.Tensor) -> None:
         """
         Ustawia obecny poziom degradacji obrazu (np. 0.3 oznacza usunięcie 30% pikseli).
         W testach Deletion wywołujemy to przed przepuszczeniem batcha przez model.
         """
-        if not 0.0 <= level <= 1.0:
-            raise ValueError("Poziom perturbacji musi być z zakresu [0.0, 1.0]")
-        self.current_perturbation_level = level
+        if isinstance(levels, list):
+            # Przenosimy poziomy na urządzenie modelu (GPU/CPU)
+            self.current_levels = torch.tensor(levels, device=self.temperatures.device)
+        else:
+            self.current_levels = levels.to(self.temperatures.device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Przepuszcza dane przez bazowy model i skaluje logity odpowiednim T."""
         logits = self.model(x)
 
-        # Obliczenie indeksu koszyka (bin_idx) na podstawie poziomu perturbacji
-        bin_idx = int(self.current_perturbation_level * self.num_bins)
-        # Zabezpieczenie przed wyjściem poza tablicę dla level=1.0
-        bin_idx = min(bin_idx, self.num_bins - 1)
+        if not hasattr(self, "current_levels") or self.current_levels is None:
+            return logits
 
-        # Pobranie odpowiedniej temperatury dla tego poziomu degradacji
-        temp = self.temperatures[bin_idx]
-
-        return (
-            logits / temp.item() if isinstance(logits, torch.Tensor) else logits / temp
+        bin_indices = (
+            (self.current_levels * self.num_bins).long().clamp(0, self.num_bins - 1)
         )
+        temps = self.temperatures[bin_indices].unsqueeze(1)
+
+        return logits / temps
 
     def load_learned_temperatures(self, learned_temps: list[float]) -> None:
-        """Ładuje wyuczone temperatury do modelu."""
+        """Loading temperatures."""
         if len(learned_temps) != self.num_bins:
             raise ValueError(
-                f"Oczekiwano {self.num_bins} temperatur, otrzymano {len(learned_temps)}"
+                f"Expected {self.num_bins} temperatures, got {len(learned_temps)}"
             )
 
         with torch.no_grad():

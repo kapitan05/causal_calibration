@@ -19,7 +19,7 @@ def _generate_deletion_sequence(
 
     # flatten the inputs
     flat_saliency = saliency_map.flatten()
-    flat_image = image.clone().view(channels, -1)
+    flat_image = image.clone().view(channels, -1)  # (3, num_pixels)
 
     sorted_indices = torch.argsort(flat_saliency, descending=True)
 
@@ -68,11 +68,9 @@ def _generate_insertion_sequence(
 @torch.no_grad()
 def evaluate_causal_metric(
     model: torch.nn.Module,
-    image: torch.Tensor,
-    saliency_map: torch.Tensor,
+    sequence_tensor: torch.Tensor,
+    perturbation_levels: list[float],
     target_class: int,
-    mode: str = "deletion",
-    step_fraction: float = 0.01,
     batch_size: int = 32,
 ) -> tuple[list[float], float]:
     """
@@ -90,22 +88,6 @@ def evaluate_causal_metric(
     Returns:
         List of probabilities at each step, and the AUC score.
     """
-    if mode not in ["deletion", "insertion"]:
-        raise ValueError("Mode must be either 'deletion' or 'insertion'.")
-
-    height, width = saliency_map.shape
-    total_pixels = height * width
-    pixels_per_step = max(1, int(total_pixels * step_fraction))
-
-    # images sequence generation
-    if mode == "deletion":
-        sequence_tensor = _generate_deletion_sequence(
-            image, saliency_map, pixels_per_step
-        )
-    else:
-        sequence_tensor = _generate_insertion_sequence(
-            image, saliency_map, pixels_per_step
-        )
 
     num_steps = sequence_tensor.size(0)
     probabilities: list[float] = []
@@ -113,20 +95,12 @@ def evaluate_causal_metric(
     # model evaluation of sequence using batches
     for i in range(0, num_steps, batch_size):
         batch = sequence_tensor[i : i + batch_size]
+        batch_levels = perturbation_levels[i : i + batch_size]
 
         if hasattr(model, "set_perturbation_level"):
-            batch_probs = []
-            for k in range(batch.size(0)):
-                current_step = i + k
-                level = current_step / max(1, (num_steps - 1))
-
-                model.set_perturbation_level(level)
-
-                single_img = batch[k : k + 1]
-                logits = model(single_img)
-                batch_probs.append(torch.nn.functional.softmax(logits, dim=1))
-
-            probs = torch.cat(batch_probs, dim=0)
+            model.set_perturbation_levels(batch_levels)
+            logits = model(batch)
+            probs = torch.nn.functional.softmax(logits, dim=1)
         else:
             logits = model(batch)
             probs = torch.nn.functional.softmax(logits, dim=1)
