@@ -11,8 +11,8 @@ from scipy import optimize
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from .attribution import AttributionPipeline
 from .generators import SequenceGenerator
-from .pipelines import AttributionPipeline
 
 """ReCalX: Core calibration module.
 """
