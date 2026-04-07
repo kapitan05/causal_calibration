@@ -1,3 +1,5 @@
+import numpy as np
+import numpy.typing as npt
 import torch
 from sklearn.metrics import auc
 
@@ -9,7 +11,7 @@ def evaluate_causal_metric(
     perturbation_levels: list[float],
     target_class: int,
     batch_size: int = 32,
-) -> tuple[list[float], float]:
+) -> tuple[list[float], float, npt.NDArray[np.float64]]:
     """
     Evaluates a pre-generated sequence of images and calculates the AUC score.
 
@@ -26,6 +28,7 @@ def evaluate_causal_metric(
 
     num_steps = sequence_tensor.size(0)
     probabilities: list[float] = []
+    all_probs: list[np.ndarray] = []
 
     # model evaluation of sequence using batches
     for i in range(0, num_steps, batch_size):
@@ -42,8 +45,11 @@ def evaluate_causal_metric(
 
         target_probs = probs[:, target_class].cpu().tolist()
         probabilities.extend(target_probs)
+        all_probs.append(probs.cpu().numpy())
 
     # AUC score
     auc_score = float(auc(perturbation_levels, probabilities))
 
-    return probabilities, auc_score
+    all_probs_np = np.concatenate(all_probs, axis=0)
+
+    return probabilities, auc_score, all_probs_np
