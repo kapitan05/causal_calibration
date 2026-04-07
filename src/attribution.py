@@ -33,7 +33,7 @@ class AttributionPipeline:
 
         if method_name == "occlusion":
             attributions = method.attribute(
-                input_tensor, target=target_class, sliding_window_shapes=(3, 14, 14)
+                input_tensor, target=target_class, sliding_window_shapes=(3, 16, 16)
             )
         elif method_name == "ig":
             attributions = method.attribute(
