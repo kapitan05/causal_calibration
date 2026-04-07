@@ -13,3 +13,13 @@ Experiments plan:
 
 Metrics:
 -FID + OTDD (when datasets A - otiginal, B - masked, C - after inpainting prepared)
+
+
+Experiments:
+
+
+Ideas to implement and test:
+1 - Patch-based Deletion, który usuwa spójne bloki (16x16) zgodne z fizycznym podziałem tokenów w analizowanej architekturze Vit.
+2 - Superpixel Deletion (np. SLIC z biblioteki skimage) instead of bucket...
+3 - No success with io-painting, so try to replicate papers results (dog with green field)
+4 - 

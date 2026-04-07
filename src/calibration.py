@@ -117,10 +117,16 @@ class ReCalXModel(nn.Module):
             self.temperatures.copy_(torch.tensor(learned_temps, dtype=torch.float32))
 
 
+# --------------------------------------------------------------------------------
+# Main functions for collecting logits and training temperatures
+# --------------------------------------------------------------------------------
+
+
 @torch.no_grad()
 def collect_logits_for_calibration(
     model: torch.nn.Module,
     explainer: AttributionPipeline,
+    explainer_method: str,
     dataloader: DataLoader,
     sequence_generator: SequenceGenerator,
     device: torch.device,
@@ -146,9 +152,9 @@ def collect_logits_for_calibration(
             single_img = images[i : i + 1]
             target_class = labels[i].item()
 
-            saliency_map = explainer.generate_map(single_img, target_class, "ig").to(
-                device
-            )
+            saliency_map = explainer.generate_map(
+                single_img, target_class, explainer_method
+            ).to(device)
 
             sequence_tensor, exact_levels = sequence_generator(
                 single_img, saliency_map, **generator_kwargs

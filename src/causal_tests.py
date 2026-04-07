@@ -15,7 +15,7 @@ def evaluate_causal_metric(
 
     Args:
         model: PyTorch model in evaluation mode.
-        sequence_tensor: Tensor of shape [num_steps, C, H, W] containing modified images.
+        sequence_tensor: Tensor, shape: [num_steps, C, H, W] containing modified images.
         perturbation_levels: Exact fraction of pixels modified at each step.
         target_class: The index of the class being explained.
         batch_size: Number of images to process simultaneously for speedup.

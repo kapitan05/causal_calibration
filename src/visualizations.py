@@ -57,3 +57,38 @@ def visualize_tests(
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_ece_curves(
+    x_axis: list[float],
+    ece_base: list[float],
+    ece_calibrated: list[float],
+    title: str = "Calibration Curves (ECE) for Deletion Test",
+) -> None:
+    """Plot comparison of ECE for base and calibrated models."""
+    plt.figure(figsize=(8, 5))
+    plt.plot(
+        x_axis,
+        ece_base,
+        color="darkred",
+        linestyle="--",
+        marker="o",
+        label="Base Model (Uncalibrated)",
+    )
+    plt.plot(
+        x_axis,
+        ece_calibrated,
+        color="darkgreen",
+        linestyle="-",
+        marker="s",
+        label="ReCalX Model (Calibrated)",
+    )
+
+    plt.title(title, fontsize=14, fontweight="bold")
+    plt.xlabel("Percentage of Damaged Images", fontsize=12)
+    plt.ylabel("Expected Calibration Error (ECE)", fontsize=12)
+    plt.ylim(0.0, max(max(ece_base), max(ece_calibrated)) * 1.2)
+    plt.legend()
+    plt.grid(True, linestyle=":", alpha=0.7)
+    plt.tight_layout()
+    plt.show()
