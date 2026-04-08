@@ -25,7 +25,8 @@ class AttributionPipeline:
         """
         if method_name not in self.methods:
             raise ValueError(
-                f"Nieznana metoda: {method_name}. Wybierz z: {list(self.methods.keys())}"
+                f"Nieznana metoda: {method_name}. \
+                Wybierz z: {list(self.methods.keys())}"
             )
 
         method = self.methods[method_name]

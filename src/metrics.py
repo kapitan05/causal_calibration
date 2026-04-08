@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import numpy.typing as npt
 
@@ -85,3 +87,55 @@ def calculate_tace(
             tace_val += np.abs(bin_conf - bin_acc)
 
     return float(tace_val / n_bins)
+
+
+def process_calibration_metrics(
+    probs_base_dict: dict[int, list[np.ndarray[Any, Any]]],
+    probs_cal_dict: dict[int, list[np.ndarray[Any, Any]]],
+    labels_dict: dict[int, list[int]],
+    num_bins: int,
+    needs_calibration: bool,
+) -> tuple[list[float], list[float], list[float], list[float]]:
+    """
+    Calculates calibration metrics (ECE, TACE) for base and calibrated
+    models across bins.
+
+    Args:
+        probs_base_dict: Dictionary mapping bin index to a list of base model
+        probability arrays.
+        probs_cal_dict: Dictionary mapping bin index to a list of calibrated model
+        probability arrays.
+        labels_dict: Dictionary mapping bin index to a list of true labels.
+        num_bins: Total number of bins.
+        needs_calibration: Flag indicating if the calibrated model should be evaluated.
+
+    Returns:
+        A tuple of four lists: (base_ECE, calibrated_ECE, base_TACE, calibrated_TACE).
+    """
+    ece_base: list[float] = []
+    ece_cal: list[float] = []
+    tace_base: list[float] = []
+    tace_cal: list[float] = []
+
+    for bin_idx in range(num_bins):
+        labels_arr = np.array(labels_dict[bin_idx])
+
+        if len(labels_arr) > 0:
+            base_probs_arr = np.array(probs_base_dict[bin_idx])
+            ece_base.append(calculate_ece(base_probs_arr, labels_arr))
+            tace_base.append(calculate_tace(base_probs_arr, labels_arr))
+
+            if needs_calibration:
+                cal_probs_arr = np.array(probs_cal_dict[bin_idx])
+                ece_cal.append(calculate_ece(cal_probs_arr, labels_arr))
+                tace_cal.append(calculate_tace(cal_probs_arr, labels_arr))
+            else:
+                ece_cal.append(0.0)
+                tace_cal.append(0.0)
+        else:
+            ece_base.append(0.0)
+            ece_cal.append(0.0)
+            tace_base.append(0.0)
+            tace_cal.append(0.0)
+
+    return ece_base, ece_cal, tace_base, tace_cal

@@ -1,6 +1,6 @@
 from asyncio.log import logger
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -97,14 +97,14 @@ class ReCalXModel(nn.Module):
         logits = self.model(x)
 
         if not hasattr(self, "current_levels") or self.current_levels is None:
-            return logits
+            return cast(torch.Tensor, logits)
 
         bin_indices = (
             (self.current_levels * self.num_bins).long().clamp(0, self.num_bins - 1)
         )
         temps = self.temperatures[bin_indices].unsqueeze(1)
 
-        return logits / temps
+        return cast(torch.Tensor, logits / temps)
 
     def load_learned_temperatures(self, learned_temps: list[float]) -> None:
         """Loading temperatures."""
@@ -127,17 +127,19 @@ def collect_logits_for_calibration(
     model: torch.nn.Module,
     explainer: AttributionPipeline,
     explainer_method: str,
-    dataloader: DataLoader,
+    dataloader: DataLoader[Any],
     sequence_generator: SequenceGenerator,
     device: torch.device,
     num_bins: int = 10,
-    **generator_kwargs: any,
-) -> Tuple[Dict[int, List[np.ndarray]], Dict[int, List[int]]]:
+    **generator_kwargs: Any,
+) -> Tuple[Dict[int, List[np.ndarray[Any, Any]]], Dict[int, List[int]]]:
     """
     Przetwarza zbiór danych, generuje sekwencje degradacji i zbiera logity do koszyków.
     """
     model.eval()
-    logits_per_bin: Dict[int, List[np.ndarray]] = {i: [] for i in range(num_bins)}
+    logits_per_bin: Dict[int, List[np.ndarray[Any, Any]]] = {
+        i: [] for i in range(num_bins)
+    }
     labels_per_bin: Dict[int, List[int]] = {i: [] for i in range(num_bins)}
 
     logger.info("Rozpoczęto zbieranie logitów OOD dla kalibracji...")
@@ -166,7 +168,7 @@ def collect_logits_for_calibration(
             for step_idx, logits in enumerate(seq_logits):
                 perturbation_level = exact_levels[step_idx]
 
-                # Zabezpieczenie na wypadek ekstremalnych wartości z inpaintingu/bucketingu
+                # Zabezpieczenie na wypadek ekstremalnych wartości
                 bin_idx = int(perturbation_level * num_bins)
                 bin_idx = min(bin_idx, num_bins - 1)
 
@@ -176,7 +178,7 @@ def collect_logits_for_calibration(
 
 
 def train_and_save_temperatures(
-    logits_per_bin: Dict[int, List[np.ndarray]],
+    logits_per_bin: Dict[int, List[np.ndarray[Any, Any]]],
     labels_per_bin: Dict[int, List[int]],
     num_bins: int,
     output_path: Path,

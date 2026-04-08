@@ -1,4 +1,4 @@
-from typing import List, Protocol, Tuple
+from typing import Any, List, Protocol, Tuple
 
 import torch
 import torchvision.transforms.functional as TF
@@ -11,7 +11,7 @@ class SequenceGenerator(Protocol):
     """
 
     def __call__(
-        self, image: torch.Tensor, saliency_map: torch.Tensor, **kwargs: any
+        self, image: torch.Tensor, saliency_map: torch.Tensor, **kwargs: Any
     ) -> Tuple[torch.Tensor, List[float]]: ...
 
 
@@ -289,4 +289,4 @@ def generate_inpainted_bucket_sequence(
     """
     ...
     """
-    pass
+    raise NotImplementedError("This generator is not yet implemented.")

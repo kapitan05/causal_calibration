@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import numpy as np
 import numpy.typing as npt
 import torch
@@ -28,7 +30,7 @@ def evaluate_causal_metric(
 
     num_steps = sequence_tensor.size(0)
     probabilities: list[float] = []
-    all_probs: list[np.ndarray] = []
+    all_probs: list[npt.NDArray[np.float64]] = []
 
     # model evaluation of sequence using batches
     for i in range(0, num_steps, batch_size):
@@ -36,7 +38,7 @@ def evaluate_causal_metric(
         batch_levels = perturbation_levels[i : i + batch_size]
 
         if hasattr(model, "set_perturbation_levels"):
-            model.set_perturbation_levels(batch_levels)
+            cast(Any, model).set_perturbation_levels(batch_levels)
             logits = model(batch)
             probs = torch.nn.functional.softmax(logits, dim=1)
         else:
