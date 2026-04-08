@@ -59,10 +59,11 @@ def calculate_tace(
         return 0.0
 
     # Extract Top-1 confidences and predictions
-    confidences = np.max(probs, axis=1)
-    predictions = np.argmax(probs, axis=1)
-    accuracies = (predictions == labels).astype(np.float64)
+    confidences = np.max(probs, axis=1)  # [N]
+    predictions = np.argmax(probs, axis=1)  # [N]
+    accuracies = (predictions == labels).astype(np.float64)  # [N]
 
+    # thresholding to filter out low-confidence predictions
     valid_mask = confidences >= threshold
     filtered_confs = confidences[valid_mask]
     filtered_accs = accuracies[valid_mask]
