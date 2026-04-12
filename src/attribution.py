@@ -1,5 +1,5 @@
 import torch
-from captum.attr import IntegratedGradients, Occlusion, Saliency, Lime
+from captum.attr import IntegratedGradients, Occlusion, Saliency, Lime, GradientShap
 
 
 class AttributionPipeline:
@@ -11,11 +11,12 @@ class AttributionPipeline:
     def __init__(self, model: torch.nn.Module) -> None:
         self.model = model
 
-        self.methods: dict[str, IntegratedGradients | Saliency | Occlusion | Lime] = {
+        self.methods: dict[str, IntegratedGradients | Saliency | Occlusion | Lime | GradientShap] = {
             "ig": IntegratedGradients(self.model),
             "saliency": Saliency(self.model),
             "occlusion": Occlusion(self.model),
             "lime": Lime(self.model),
+            "gradientshap": GradientShap(self.model),
         }
 
     def generate_map(
@@ -45,6 +46,11 @@ class AttributionPipeline:
             attributions = method.attribute(input_tensor, target=target_class, abs=True)
         elif method_name == "lime":
             attributions = method.attribute(input_tensor, target=target_class)
+        elif method_name == "gradientshap":
+            baselines = torch.zeros_like(input_tensor)    
+            attributions = method.attribute(
+                input_tensor, baselines=baselines, target=target_class, n_samples=50
+            )
 
         if isinstance(attributions, tuple):
             attributions = attributions[0]
