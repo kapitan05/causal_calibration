@@ -21,7 +21,7 @@ class AttributionPipeline:
             "feature_ablation": FeatureAblation(self.model),
         }
 
-    def create_patch_mask(self, input_tensor, patch_size=4):
+    def create_patch_mask(self, input_tensor, patch_size=16):
         _, _, H, W = input_tensor.shape
         mask = torch.zeros((1, H, W), dtype=torch.long, device=input_tensor.device)
 
