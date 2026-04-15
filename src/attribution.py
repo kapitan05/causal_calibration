@@ -23,7 +23,7 @@ class AttributionPipeline:
 
     def create_patch_mask(self, input_tensor, patch_size=4):
         _, _, H, W = input_tensor.shape
-        mask = torch.zeros((1, H, W), dtype=torch.long)
+        mask = torch.zeros((1, H, W), dtype=torch.long, device=input_tensor.device)
 
         idx = 0
         for i in range(0, H, patch_size):
