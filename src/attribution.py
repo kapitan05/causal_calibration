@@ -36,6 +36,7 @@ class AttributionPipeline:
     def generate_map(
         self, input_tensor: torch.Tensor, target_class: int, method_name: str
     ) -> torch.Tensor:
+        print("INPUT TYPE:", type(input_tensor))
         """
         Generates a saliency/attribution map for the given image and target class.
         """
