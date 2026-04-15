@@ -21,6 +21,18 @@ class AttributionPipeline:
             "feature_ablation": FeatureAblation(self.model),
         }
 
+    def create_patch_mask(input_tensor, patch_size=16):
+        _, _, H, W = input_tensor.shape
+        mask = torch.zeros((1, H, W), dtype=torch.long)
+
+        idx = 0
+        for i in range(0, H, patch_size):
+            for j in range(0, W, patch_size):
+                mask[:, i:i+patch_size, j:j+patch_size] = idx
+                idx += 1
+
+        return mask
+
     def generate_map(
         self, input_tensor: torch.Tensor, target_class: int, method_name: str
     ) -> torch.Tensor:
@@ -54,11 +66,13 @@ class AttributionPipeline:
                 input_tensor, baselines=baselines, target=target_class, n_samples=50
             )
         elif method_name == "svs":
+            mask = self.create_patch_mask(input_tensor)
             attributions = method.attribute(
-                input_tensor, target=target_class, n_samples=50
+                input_tensor, target=target_class, n_samples=50, feature_mask=mask
             )
         elif method_name == "feature_ablation":
-            attributions = method.attribute(input_tensor, target=target_class)
+            mask = self.create_patch_mask(input_tensor)
+            attributions = method.attribute(input_tensor, target=target_class, feature_mask=mask)
 
         if isinstance(attributions, tuple):
             attributions = attributions[0]
