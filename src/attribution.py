@@ -1,6 +1,6 @@
 import torch
 from captum.attr import IntegratedGradients, Occlusion, Saliency, Lime, GradientShap, ShapleyValueSampling, FeatureAblation
-from RISE import RISE
+from src.RISE import RISE
 
 class AttributionPipeline:
     def __init__(self, model: torch.nn.Module, input_size=(224, 224)) -> None:
