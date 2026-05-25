@@ -49,8 +49,18 @@ def evaluate_causal_metric(
         probabilities.extend(target_probs)
         all_probs.append(probs.cpu().numpy())
 
-    # AUC score
-    auc_score = float(auc(perturbation_levels, probabilities))
+    # AUC score — deduplicate x-values first (safety net for custom generators
+    # that may produce repeated levels, e.g. when saliency maps are degenerate)
+    seen: set[float] = set()
+    unique_levels: list[float] = []
+    unique_probs: list[float] = []
+    for lv, pb in zip(perturbation_levels, probabilities):
+        if lv not in seen:
+            seen.add(lv)
+            unique_levels.append(lv)
+            unique_probs.append(pb)
+
+    auc_score = float(auc(unique_levels, unique_probs))
 
     all_probs_np = np.concatenate(all_probs, axis=0)
 

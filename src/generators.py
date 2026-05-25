@@ -191,51 +191,61 @@ def _generate_bucket_deletion_sequence(
     fill_value: float = 0.0,
 ) -> tuple[torch.Tensor, list[float]]:
     """
-    Generates a sequence of images where pixels are removed based on natural
-    significance buckets (thresholds) rather than strict percentiles.
+    Generates a deletion sequence by removing pixels in equal-count significance
+    buckets (rank-based), from most to least attributed.
+
+    Unlike TopN deletion (many tiny fixed-% steps), this divides all pixels into
+    N equal-sized groups by attribution rank. Each step removes one full group,
+    making the causal contribution of each significance tier explicit.
+
+    This approach is robust to sparse saliency maps (e.g. IG, Saliency) because
+    bucket membership is determined by rank order, not by raw saliency value.
+    The previous value-threshold approach (linspace 1→0) collapsed most pixels
+    into the last bucket whenever attribution maps were heavily right-skewed.
 
     Args:
-        image: Original image tensor of shape [1, C, H, W] or [C, H, W].
+        image: Original image tensor of shape [1, C, H, W].
         saliency_map: Attribution map of shape [H, W].
-        num_buckets: Number of discrete significance levels to create.
+        num_buckets: Number of significance tiers to create.
         fill_value: Value to replace deleted pixels with (0.0 for black).
 
     Returns:
         A tuple containing:
-        - Tensor of shape [num_buckets + 1, C, H, W] with the degraded images.
-        - List of floats representing the exact fraction of pixels removed at each step.
+        - Tensor of shape [num_buckets + 1, C, H, W] (clean image + one per bucket).
+        - List of floats [0.0, 1/N, 2/N, ..., 1.0] — fraction of pixels removed.
     """
-    sal_min = saliency_map.min()
-    sal_max = saliency_map.max()
-    if sal_max > sal_min:
-        norm_saliency = (saliency_map - sal_min) / (sal_max - sal_min)
-    else:
-        norm_saliency = saliency_map
+    img_squeezed = image.squeeze(0)  # [C, H, W]
+    C, H, W = img_squeezed.shape
+    total_pixels = H * W
 
-    thresholds = torch.linspace(1.0, 0.0, steps=num_buckets + 1).to(image.device)
+    # Sort pixels by attribution descending — highest saliency removed first
+    flat_saliency = saliency_map.flatten()
+    sorted_indices = torch.argsort(flat_saliency, descending=True)
 
-    sequence = []
-    perturbation_levels = []
-    total_pixels = saliency_map.numel()
+    flat_image = img_squeezed.clone().view(C, -1)  # [C, H*W], modified in-place per step
 
-    img_squeezed = image.squeeze(0)
+    sequence: list[torch.Tensor] = []
+    perturbation_levels: list[float] = []
 
-    for thresh in thresholds:
-        delete_mask = norm_saliency >= thresh
+    # Step 0: clean original image — anchors the AUC at (0.0, initial_confidence)
+    sequence.append(flat_image.view(1, C, H, W).clone())
+    perturbation_levels.append(0.0)
 
-        removed_fraction = delete_mask.sum().item() / total_pixels
-        perturbation_levels.append(removed_fraction)
+    pixels_per_bucket = total_pixels // num_buckets
 
-        delete_mask_rgb = delete_mask.unsqueeze(0).expand_as(
-            img_squeezed
-        )  # # [3, 224, 224]
+    for b in range(num_buckets):
+        start = b * pixels_per_bucket
+        # Last bucket absorbs any remainder from integer division
+        end = start + pixels_per_bucket if b < num_buckets - 1 else total_pixels
 
-        masked_image = img_squeezed.clone()
-        masked_image[delete_mask_rgb] = fill_value
+        bucket_indices = sorted_indices[start:end]
+        flat_image[:, bucket_indices] = fill_value
 
-        sequence.append(masked_image)
+        removed_fraction = end / total_pixels
+        perturbation_levels.append(float(removed_fraction))
+        sequence.append(flat_image.view(1, C, H, W).clone())
 
-    return torch.stack(sequence, dim=0), perturbation_levels
+    return torch.cat(sequence, dim=0), perturbation_levels
 
 
 def _generate_bucket_insertion_sequence(
@@ -246,41 +256,61 @@ def _generate_bucket_insertion_sequence(
     blur_sigma: float = 10.0,
 ) -> Tuple[torch.Tensor, List[float]]:
     """
-    Generates an insertion sequence by gradually revealing original pixels
-    over a Gaussian blurred baseline image, based on significance buckets.
-    """
-    sal_min, sal_max = saliency_map.min(), saliency_map.max()
-    if sal_max > sal_min:
-        norm_saliency = (saliency_map - sal_min) / (sal_max - sal_min)
-    else:
-        norm_saliency = saliency_map
+    Generates an insertion sequence by revealing pixels in equal-count significance
+    buckets (rank-based), from most to least attributed.
 
-    # blurred image
-    img_squeezed = image.squeeze(0)
+    Starts from a fully Gaussian-blurred baseline and restores pixel groups one
+    tier at a time, highest attribution first. Mirrors the rank-based logic of
+    _generate_bucket_deletion_sequence for fair comparison.
+
+    Args:
+        image: Original image tensor of shape [1, C, H, W].
+        saliency_map: Attribution map of shape [H, W].
+        num_buckets: Number of significance tiers to create.
+        blur_kernel_size: Kernel size for the Gaussian blur baseline.
+        blur_sigma: Sigma for the Gaussian blur baseline.
+
+    Returns:
+        A tuple containing:
+        - Tensor of shape [num_buckets + 1, C, H, W] (blurred baseline + one per bucket).
+        - List of floats [0.0, 1/N, 2/N, ..., 1.0] — fraction of pixels revealed.
+    """
+    img_squeezed = image.squeeze(0)  # [C, H, W]
+    C, H, W = img_squeezed.shape
+    total_pixels = H * W
+
     blurred_image = TF.gaussian_blur(
         img_squeezed, [blur_kernel_size, blur_kernel_size], [blur_sigma, blur_sigma]
     )
 
-    thresholds = torch.linspace(1.0, 0.0, steps=num_buckets + 1).to(image.device)
+    # Sort pixels by attribution descending — highest saliency revealed first
+    flat_saliency = saliency_map.flatten()
+    sorted_indices = torch.argsort(flat_saliency, descending=True)
 
-    sequence = []
-    perturbation_levels = []
-    total_pixels = saliency_map.numel()
+    flat_original = img_squeezed.view(C, -1)            # [C, H*W] — source of real pixels
+    flat_current = blurred_image.clone().view(C, -1)    # [C, H*W] — modified in-place per step
 
-    for thresh in thresholds:
-        insert_mask = norm_saliency >= thresh  # [224, 224]
+    sequence: list[torch.Tensor] = []
+    perturbation_levels: list[float] = []
 
-        inserted_fraction = insert_mask.sum().item() / total_pixels
-        perturbation_levels.append(inserted_fraction)
+    # Step 0: fully blurred baseline — anchors the AUC at (0.0, blurred_confidence)
+    sequence.append(flat_current.view(1, C, H, W).clone())
+    perturbation_levels.append(0.0)
 
-        expand_mask = insert_mask.unsqueeze(0).expand_as(img_squeezed)  # [3, 224, 224]
+    pixels_per_bucket = total_pixels // num_buckets
 
-        inserted_image = blurred_image.clone()
-        inserted_image[expand_mask] = img_squeezed[expand_mask]
+    for b in range(num_buckets):
+        start = b * pixels_per_bucket
+        end = start + pixels_per_bucket if b < num_buckets - 1 else total_pixels
 
-        sequence.append(inserted_image)
+        bucket_indices = sorted_indices[start:end]
+        flat_current[:, bucket_indices] = flat_original[:, bucket_indices]
 
-    return torch.stack(sequence, dim=0), perturbation_levels
+        revealed_fraction = end / total_pixels
+        perturbation_levels.append(float(revealed_fraction))
+        sequence.append(flat_current.view(1, C, H, W).clone())
+
+    return torch.cat(sequence, dim=0), perturbation_levels
 
 
 def generate_inpainted_bucket_sequence(
