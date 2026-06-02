@@ -1,24 +1,43 @@
 import torch
 from torchvision import transforms
-from torchvision.models import ResNet50_Weights, ViT_B_16_Weights, resnet50, vit_b_16
+from torchvision.models import (
+    ResNet50_Weights,
+    ResNet101_Weights,
+    ViT_B_16_Weights,
+    ViT_B_32_Weights,
+    resnet50,
+    resnet101,
+    vit_b_16,
+    vit_b_32,
+)
 
 
 def load_models(device: torch.device) -> dict[str, torch.nn.Module]:
     """
-    Pobiera i konfiguruje modele ResNet50 oraz ViT-B/16.
-    Zwraca słownik z gotowymi do pracy modelami w trybie ewaluacji.
+    Loads ResNet50, ResNet101, ViT-B/16, ViT-B/32 with ImageNet weights.
+    Returns dict of models in eval mode.
     """
-    print("Pobieranie wag modelu ResNet50...")
-    resnet = resnet50(weights=ResNet50_Weights.DEFAULT).to(device)
-    resnet.eval()
+    print("Loading ResNet50...")
+    rn50 = resnet50(weights=ResNet50_Weights.DEFAULT).to(device)
+    rn50.eval()
 
-    print("Pobieranie wag modelu ViT-B/16...")
-    vit = vit_b_16(weights=ViT_B_16_Weights.DEFAULT).to(device)
-    vit.eval()
+    print("Loading ResNet101...")
+    rn101 = resnet101(weights=ResNet101_Weights.DEFAULT).to(device)
+    rn101.eval()
+
+    print("Loading ViT-B/16...")
+    vit16 = vit_b_16(weights=ViT_B_16_Weights.DEFAULT).to(device)
+    vit16.eval()
+
+    print("Loading ViT-B/32...")
+    vit32 = vit_b_32(weights=ViT_B_32_Weights.DEFAULT).to(device)
+    vit32.eval()
 
     return {
-        "resnet50": resnet,
-        "vit_b_16": vit,
+        "resnet50": rn50,
+        "resnet101": rn101,
+        "vit_b_16": vit16,
+        "vit_b_32": vit32,
     }
 
 
