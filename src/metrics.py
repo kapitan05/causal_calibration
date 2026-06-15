@@ -149,11 +149,6 @@ def _truncate_flat_tail(
     window: int = 5,
     std_threshold: float = 0.005,
 ) -> tuple[list[float], list[float]]:
-    """Removes trailing flat region from a confidence curve.
-
-    Scans from the end; keeps only the prefix where at least one window of
-    `window` consecutive steps has std > std_threshold.
-    """
     n = len(probabilities)
     if n <= window:
         return probabilities, perturbation_levels
@@ -175,12 +170,6 @@ def calculate_spearman(
     perturbation_levels: list[float],
     truncate_flat: bool = True,
 ) -> float:
-    """Spearman rank correlation between perturbation level and confidence.
-
-    Deletion ideal: r = -1 (confidence falls as more pixels removed).
-    Insertion ideal: r = +1 (confidence rises as more pixels revealed).
-    truncate_flat removes the plateau tail before computing correlation.
-    """
     probs = probabilities
     levels = perturbation_levels
     if truncate_flat:
@@ -197,12 +186,6 @@ def calculate_monotonicity_ratio(
     probabilities: list[float],
     mode: Literal["deletion", "insertion"] = "deletion",
 ) -> float:
-    """Fraction of consecutive steps moving in the expected direction.
-
-    deletion: each step should decrease or stay flat (prob[i+1] <= prob[i]).
-    insertion: each step should increase or stay flat (prob[i+1] >= prob[i]).
-    Returns value in [0, 1]; 1.0 = perfectly monotone.
-    """
     if len(probabilities) < 2:
         return 1.0
 
@@ -219,11 +202,6 @@ def test_calibration_significance(
     before_scores: list[float],
     after_scores: list[float],
 ) -> tuple[float, float]:
-    """Wilcoxon signed-rank test comparing paired before/after calibration scores.
-
-    Returns (statistic, p_value). p < 0.05 indicates a significant change.
-    Requires at least 10 paired observations for a reliable result.
-    """
     if len(before_scores) != len(after_scores):
         raise ValueError("before_scores and after_scores must have equal length")
     if len(before_scores) < 2:

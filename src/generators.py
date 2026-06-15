@@ -190,30 +190,6 @@ def _generate_bucket_deletion_sequence(
     num_buckets: int = 10,
     fill_value: float = 0.0,
 ) -> tuple[torch.Tensor, list[float]]:
-    """
-    Generates a deletion sequence by removing pixels in equal-count significance
-    buckets (rank-based), from most to least attributed.
-
-    Unlike TopN deletion (many tiny fixed-% steps), this divides all pixels into
-    N equal-sized groups by attribution rank. Each step removes one full group,
-    making the causal contribution of each significance tier explicit.
-
-    This approach is robust to sparse saliency maps (e.g. IG, Saliency) because
-    bucket membership is determined by rank order, not by raw saliency value.
-    The previous value-threshold approach (linspace 1→0) collapsed most pixels
-    into the last bucket whenever attribution maps were heavily right-skewed.
-
-    Args:
-        image: Original image tensor of shape [1, C, H, W].
-        saliency_map: Attribution map of shape [H, W].
-        num_buckets: Number of significance tiers to create.
-        fill_value: Value to replace deleted pixels with (0.0 for black).
-
-    Returns:
-        A tuple containing:
-        - Tensor of shape [num_buckets + 1, C, H, W] (clean image + one per bucket).
-        - List of floats [0.0, 1/N, 2/N, ..., 1.0] — fraction of pixels removed.
-    """
     img_squeezed = image.squeeze(0)  # [C, H, W]
     C, H, W = img_squeezed.shape
     total_pixels = H * W
@@ -255,26 +231,6 @@ def _generate_bucket_insertion_sequence(
     blur_kernel_size: int = 51,
     blur_sigma: float = 10.0,
 ) -> Tuple[torch.Tensor, List[float]]:
-    """
-    Generates an insertion sequence by revealing pixels in equal-count significance
-    buckets (rank-based), from most to least attributed.
-
-    Starts from a fully Gaussian-blurred baseline and restores pixel groups one
-    tier at a time, highest attribution first. Mirrors the rank-based logic of
-    _generate_bucket_deletion_sequence for fair comparison.
-
-    Args:
-        image: Original image tensor of shape [1, C, H, W].
-        saliency_map: Attribution map of shape [H, W].
-        num_buckets: Number of significance tiers to create.
-        blur_kernel_size: Kernel size for the Gaussian blur baseline.
-        blur_sigma: Sigma for the Gaussian blur baseline.
-
-    Returns:
-        A tuple containing:
-        - Tensor of shape [num_buckets + 1, C, H, W] (blurred baseline + one per bucket).
-        - List of floats [0.0, 1/N, 2/N, ..., 1.0] — fraction of pixels revealed.
-    """
     img_squeezed = image.squeeze(0)  # [C, H, W]
     C, H, W = img_squeezed.shape
     total_pixels = H * W
